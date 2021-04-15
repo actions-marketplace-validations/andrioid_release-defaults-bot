@@ -2,6 +2,8 @@
 
 > A GitHub App built with [Probot](https://github.com/probot/probot) that Drafts release notes when a new tag is created
 
+Testing something 2
+
 ## Setup
 
 ```sh
