@@ -1,6 +1,5 @@
 import { Probot } from "probot";
 import compareVersions from "compare-versions";
-//import log from "./log"
 
 export = (app: Probot) => {
   app.on("issues.edited", async (context) => {
@@ -20,6 +19,11 @@ export = (app: Probot) => {
      * 4. Generate release draft
      * 5. Add to this release
      */
+
+    if (context.payload.release.body !== "") {
+      context.log.warn("Body is not empty, ignoring event");
+      return;
+    }
 
     let releases = await context.octokit.paginate(
       "GET /repos/{owner}/{repo}/releases",
@@ -50,33 +54,61 @@ export = (app: Probot) => {
     const comparison = await context.octokit.repos.compareCommits({
       owner: context.repo().owner,
       repo: context.repo().repo,
-      base: context.payload.release.tag_name,
-      head: lastRelease.tag_name,
+      base: lastRelease.tag_name,
+      head: context.payload.release.tag_name,
     });
 
     //console.log("releases", releases);
     console.log("filtered", filteredReleases);
-    console.log("comparison", comparison);
+    const commits = comparison.data.commits;
 
-    //  let releases = await context.octokit.paginate(
-    //   context.octokit.getReleases(context.repo()),
-    //   res => res.data
-    // )
+    //console.log("found commits", commits);
 
-    // releases = releases
-    //   .filter(r => !r.draft)
-    //   .sort((r1, r2) => compareVersions(r2.tag_name, r1.tag_name))
+    let pullRequests: {
+      [key: number]: {
+        id: number;
+        title: string;
+        url: string;
+        body: string | null;
+        number: number;
+      };
+    } = {};
 
-    // if (releases.length === 0) {
-    //   log({ app, context, message: `No releases found` })
-    //   return
-    // }
+    for (let i = 0; i < commits.length; i++) {
+      let pr = await context.octokit.repos.listPullRequestsAssociatedWithCommit(
+        {
+          owner: context.repo().owner,
+          repo: context.repo().repo,
+          commit_sha: commits[i].sha,
+        }
+      );
+      if (pr.data.length > 0) {
+        console.log(
+          "adding pr to list",
+          commits[i].commit.message,
+          pr.data[0].title
+        );
+        pullRequests[pr.data[0].id] = pr.data[0];
+      }
+    }
 
-    //const latestRelease = await context.octokit.repos.getLatestRelease();
-    //const releaseId = context.payload.release.id
-    //const releaseOwner = context.payload.release.author
-    //const releaseRepo = context.payload.repository
-    //context.octokit.repos.getRelease(context.payload.release.id)
+    if (Object.keys(pullRequests).length === 0) {
+      context.log.warn("No pull requests found, aborting");
+      return;
+    }
+
+    let newBody = `## ${context.payload.release.name}\n`;
+
+    for (const k in pullRequests) {
+      newBody += `- ${pullRequests[k].title} (#${pullRequests[k].number})\n`;
+    }
+
+    await context.octokit.repos.updateRelease({
+      owner: context.repo().owner,
+      repo: context.repo().repo,
+      release_id: context.payload.release.id,
+      body: newBody,
+    });
   });
 
   // For more information on building apps:
