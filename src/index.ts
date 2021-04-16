@@ -1,5 +1,14 @@
 import { Probot } from "probot";
 import compareVersions from "compare-versions";
+import semver from "semver";
+
+/**
+ * TODO:
+ * 1. Fetch all releases matching our major + minor and add their body to ours as
+ * 2. Cleanup and split up
+ */
+
+const PAGE_BREAK_MD = "\n<!-- Page break -->\n";
 
 export = (app: Probot) => {
   app.on("issues.edited", async (context) => {
@@ -25,6 +34,12 @@ export = (app: Probot) => {
       return;
     }
 
+    const thisVersion = context.payload.release.tag_name;
+    if (!semver.valid(thisVersion)) {
+      context.log.warn("Version in tag name is not valid, ignoring");
+      return;
+    }
+
     let releases = await context.octokit.paginate(
       "GET /repos/{owner}/{repo}/releases",
       {
@@ -39,11 +54,21 @@ export = (app: Probot) => {
         tag_name: r.tag_name,
         draft: r.draft,
         prerelease: r.prerelease,
+        body: r.body,
       }))
-      .filter((r) => !r.draft)
-      .filter(
-        (r) => compareVersions(r.tag_name, context.payload.release.tag_name) < 0
-      )
+      .filter((r) => {
+        // Exclude drafts and pre-releases from comparison
+        if (r.draft || r.prerelease) {
+          return false;
+        }
+        // Exclude any newer versions than our own
+        if (
+          compareVersions(r.tag_name, context.payload.release.tag_name) >= 0
+        ) {
+          return false;
+        }
+        return true;
+      })
       .sort((a, b) => compareVersions(b.tag_name, a.tag_name));
 
     if (filteredReleases.length === 0) {
@@ -58,11 +83,8 @@ export = (app: Probot) => {
       head: context.payload.release.tag_name,
     });
 
-    //console.log("releases", releases);
     console.log("filtered", filteredReleases);
     const commits = comparison.data.commits;
-
-    //console.log("found commits", commits);
 
     let pullRequests: {
       [key: number]: {
@@ -73,6 +95,8 @@ export = (app: Probot) => {
         number: number;
       };
     } = {};
+
+    context.log.info(`Number of commits`, JSON.stringify(comparison));
 
     for (let i = 0; i < commits.length; i++) {
       let pr = await context.octokit.repos.listPullRequestsAssociatedWithCommit(
@@ -97,10 +121,32 @@ export = (app: Probot) => {
       return;
     }
 
-    let newBody = `## ${context.payload.release.name}\n`;
+    // Add pull-requests to the body
+    let newBody = ``;
 
     for (const k in pullRequests) {
       newBody += `- ${pullRequests[k].title} (#${pullRequests[k].number})\n`;
+    }
+
+    // Add any previous releases
+    newBody += PAGE_BREAK_MD;
+    newBody += `## Previous releases\n\n`;
+    for (let i = 0; i < filteredReleases.length; i++) {
+      const body = filteredReleases[i].body;
+      if (!body) {
+        continue;
+      }
+      newBody += `### ${filteredReleases[i].name}\n\n`;
+
+      const bodyPart =
+        (filteredReleases[i].body &&
+          filteredReleases[i].body?.split(PAGE_BREAK_MD)[0]) ||
+        "";
+      if (bodyPart) {
+        newBody += `${bodyPart}\n\n`;
+      } else {
+        newBody += `${filteredReleases[i].body}\n\n`;
+      }
     }
 
     await context.octokit.repos.updateRelease({
