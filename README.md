@@ -4,6 +4,19 @@ Ever needed to release something without having the time to write release notes?
 
 **Release Defaults** drafts release-notes for releases that don't have a body.
 
+## Goals (and non-goals)
+
+- [x] Pull-Request Overview
+- [x] Direct Commit Collapsed Overview
+- [x] Less annoying than commit-log
+- [ ] Organize by PR labels
+- [ ] Allow some customization
+
+## Non Goals
+
+- Customer Ready or picture perfect
+- Project specific additions that can't be solved with a configuration
+
 ## How Release Defaults works
 
 1. Every time it finds an empty release body, it activates (created, edited, etc)
@@ -70,14 +83,15 @@ docker run -e APP_ID=<app-id> -e PRIVATE_KEY=<pem-value> draft-on-release-tag
 Add to a Github workflow file (e.g. .github/workflows/example.yml)
 
 ```yml
-name: Say Hello World
+name: Release Defaults Bot
 on:
-  issues:
+  release:
     types:
-      - opened
+      - created
+      - edited
 
 jobs:
-  sayHelloWorld:
+  release-notes:
     runs-on: ubuntu-latest
     steps:
       - uses: andrioid/release-defaults-bot@master
