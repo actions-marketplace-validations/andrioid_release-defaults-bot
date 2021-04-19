@@ -2327,7 +2327,7 @@ var require_src = __commonJS((exports2, module2) => {
   var PAGE_BREAK_MD = "<!-- Page break -->";
   module2.exports = (app2) => {
     app2.on("release", async (context) => {
-      var _a, _b;
+      var _a, _b, _c, _d;
       app2.log.info("onRelease", context.payload, context.config);
       if (context.payload.release.body !== "") {
         context.log.warn("Body is not empty, ignoring event");
@@ -2368,7 +2368,6 @@ var require_src = __commonJS((exports2, module2) => {
         base: lastRelease.tag_name,
         head: context.payload.release.tag_name
       });
-      console.log("filtered", filteredReleases);
       const commits = comparison.data.commits;
       let pullRequests = {};
       let orphanedCommits = [];
@@ -2379,7 +2378,6 @@ var require_src = __commonJS((exports2, module2) => {
           commit_sha: commits[i].sha
         });
         if (pr.data.length > 0) {
-          console.log("adding pr to list", commits[i].commit.message, pr.data[0].title);
           pullRequests[pr.data[0].id] = pr.data[0];
         } else {
           orphanedCommits.push(commits[i]);
@@ -2387,14 +2385,23 @@ var require_src = __commonJS((exports2, module2) => {
       }
       let newBody = ``;
       for (const k in pullRequests) {
-        newBody += `- ${pullRequests[k].title} (#${pullRequests[k].number})
+        const user = ((_a = pullRequests[k].user) == null ? void 0 : _a.login) && `, @${(_b = pullRequests[k].user) == null ? void 0 : _b.login}` || "";
+        newBody += `- ${pullRequests[k].title} (#${pullRequests[k].number}${user})
 `;
+        if (pullRequests[k].labels.length > 0) {
+          let labels = "	";
+          pullRequests[k].labels.forEach((l) => {
+            labels += `![${l.name}](https://shields.io/badge/${l.name}-${l.color}) `;
+          });
+          labels += "\n";
+          newBody += labels;
+        }
       }
       if (orphanedCommits.length > 0) {
         let orphanedText = "";
         for (let i = 0; i < orphanedCommits.length; i++) {
           const c = orphanedCommits[i];
-          orphanedText += `- **${(_a = c.commit.author) == null ? void 0 : _a.name}**: [${c.commit.message}](${c.html_url})
+          orphanedText += `- **${(_c = c.commit.author) == null ? void 0 : _c.name}**: [${c.commit.message}](${c.html_url})
 `;
         }
         newBody += `<details><summary>Direct Commits</summary>
@@ -2426,7 +2433,7 @@ ${orphanedText}
           if (!body) {
             continue;
           }
-          const bodyPart = filteredReleases[i].body && ((_b = filteredReleases[i].body) == null ? void 0 : _b.split(PAGE_BREAK_MD)[0]) || "";
+          const bodyPart = filteredReleases[i].body && ((_d = filteredReleases[i].body) == null ? void 0 : _d.split(PAGE_BREAK_MD)[0]) || "";
           if (bodyPart) {
             newBody += `${bodyPart}
 
