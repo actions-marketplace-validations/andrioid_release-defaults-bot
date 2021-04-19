@@ -12,7 +12,7 @@ Ever needed to release something without having the time to write release notes?
 - [ ] Organize by PR labels
 - [ ] Allow some customization
 
-## Non Goals
+### Non Goals
 
 - Customer Ready or picture perfect
 - Project specific additions that can't be solved with a configuration
