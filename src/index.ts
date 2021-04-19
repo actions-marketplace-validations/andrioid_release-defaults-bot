@@ -76,7 +76,6 @@ export = (app: Probot) => {
       head: context.payload.release.tag_name,
     });
 
-    console.log("filtered", filteredReleases);
     const commits = comparison.data.commits;
 
     let pullRequests: {
@@ -86,6 +85,28 @@ export = (app: Probot) => {
         url: string;
         body: string | null;
         number: number;
+        labels: {
+          id?: number | undefined;
+          node_id?: string | undefined;
+          url?: string | undefined;
+          name?: string | undefined;
+          description?: string | undefined;
+          color?: string | undefined;
+          default?: boolean | undefined;
+        }[];
+        user: {
+          login: string;
+          id: number;
+          node_id: string;
+          avatar_url: string;
+          gravatar_id: string | null;
+          url: string;
+          html_url: string;
+          followers_url: string;
+          following_url: string;
+          gists_url: string;
+          starred_at?: string | undefined;
+        } | null;
       };
     } = {};
 
@@ -100,11 +121,6 @@ export = (app: Probot) => {
         }
       );
       if (pr.data.length > 0) {
-        console.log(
-          "adding pr to list",
-          commits[i].commit.message,
-          pr.data[0].title
-        );
         pullRequests[pr.data[0].id] = pr.data[0];
       } else {
         orphanedCommits.push(commits[i]);
@@ -115,7 +131,18 @@ export = (app: Probot) => {
     let newBody = ``;
 
     for (const k in pullRequests) {
-      newBody += `- ${pullRequests[k].title} (#${pullRequests[k].number})\n`;
+      const user =
+        (pullRequests[k].user?.login && `, @${pullRequests[k].user?.login}`) ||
+        "";
+      newBody += `- ${pullRequests[k].title} (#${pullRequests[k].number}${user})\n`;
+      if (pullRequests[k].labels.length > 0) {
+        let labels = "\t";
+        pullRequests[k].labels.forEach((l) => {
+          labels += `![${l.name}](https://shields.io/badge/${l.name}-${l.color}) `;
+        });
+        labels += "\n";
+        newBody += labels;
+      }
     }
 
     if (orphanedCommits.length > 0) {
