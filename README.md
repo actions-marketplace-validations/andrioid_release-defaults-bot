@@ -65,6 +65,26 @@ docker build -t draft-on-release-tag .
 docker run -e APP_ID=<app-id> -e PRIVATE_KEY=<pem-value> draft-on-release-tag
 ```
 
+## Github Actions
+
+Add to a Github workflow file (e.g. .github/workflows/example.yml)
+
+```yml
+name: Say Hello World
+on:
+  issues:
+    types:
+      - opened
+
+jobs:
+  sayHelloWorld:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: andrioid/release-defaults-bot@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ## Contributing
 
 If you have suggestions for how draft-on-release-tag could be improved, or want to report a bug, open an issue! We'd love all and any contributions.
