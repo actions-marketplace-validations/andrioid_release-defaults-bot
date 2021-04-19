@@ -9,6 +9,7 @@ Ever needed to release something without having the time to write release notes?
 - [x] Pull-Request Overview
 - [x] Direct Commit Collapsed Overview
 - [x] Less annoying than commit-log
+- [x] Show previous release notes for the same major/minor version
 - [ ] Organize by PR labels
 - [ ] Allow some customization
 
