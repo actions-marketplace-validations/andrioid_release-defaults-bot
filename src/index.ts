@@ -8,17 +8,9 @@ import semver from "semver";
  * 2. Cleanup and split up
  */
 
-const PAGE_BREAK_MD = "\n<!-- Page break -->\n";
+const PAGE_BREAK_MD = "<!-- Page break -->";
 
 export = (app: Probot) => {
-  app.on("issues.edited", async (context) => {
-    app.log.info("onIssueEdit");
-    const issueComment = context.issue({
-      body: "Tak for edit. Du er sød.",
-    });
-    await context.octokit.issues.createComment(issueComment);
-  });
-
   app.on("release", async (context) => {
     app.log.info("onRelease", context.payload, context.config);
     /**
@@ -48,13 +40,14 @@ export = (app: Probot) => {
       }
     );
 
-    const filteredReleases = releases
+    let filteredReleases = releases
       .map((r) => ({
         name: r.name,
         tag_name: r.tag_name,
         draft: r.draft,
         prerelease: r.prerelease,
         body: r.body,
+        url: r.html_url,
       }))
       .filter((r) => {
         // Exclude drafts and pre-releases from comparison
@@ -96,7 +89,7 @@ export = (app: Probot) => {
       };
     } = {};
 
-    context.log.info(`Number of commits`, JSON.stringify(comparison));
+    let orphanedCommits = [];
 
     for (let i = 0; i < commits.length; i++) {
       let pr = await context.octokit.repos.listPullRequestsAssociatedWithCommit(
@@ -113,12 +106,9 @@ export = (app: Probot) => {
           pr.data[0].title
         );
         pullRequests[pr.data[0].id] = pr.data[0];
+      } else {
+        orphanedCommits.push(commits[i]);
       }
-    }
-
-    if (Object.keys(pullRequests).length === 0) {
-      context.log.warn("No pull requests found, aborting");
-      return;
     }
 
     // Add pull-requests to the body
@@ -128,24 +118,47 @@ export = (app: Probot) => {
       newBody += `- ${pullRequests[k].title} (#${pullRequests[k].number})\n`;
     }
 
-    // Add any previous releases
-    newBody += PAGE_BREAK_MD;
-    newBody += `## Previous releases\n\n`;
-    for (let i = 0; i < filteredReleases.length; i++) {
-      const body = filteredReleases[i].body;
-      if (!body) {
-        continue;
+    if (orphanedCommits.length > 0) {
+      let orphanedText = "";
+      for (let i = 0; i < orphanedCommits.length; i++) {
+        const c = orphanedCommits[i];
+        orphanedText += `- **${c.commit.author?.name}**: [${c.commit.message}](${c.html_url})\n`;
       }
-      newBody += `### ${filteredReleases[i].name}\n\n`;
+      newBody += `<details><summary>Direct Commits</summary>\n\n${orphanedText}\n</details>`;
+      newBody += "\n";
+    }
 
-      const bodyPart =
-        (filteredReleases[i].body &&
-          filteredReleases[i].body?.split(PAGE_BREAK_MD)[0]) ||
-        "";
-      if (bodyPart) {
-        newBody += `${bodyPart}\n\n`;
-      } else {
-        newBody += `${filteredReleases[i].body}\n\n`;
+    // Add previous releases if they match the same major/minor version.
+    filteredReleases = filteredReleases.filter((r) => {
+      const rMajor = semver.major(r.tag_name);
+      const rMinor = semver.minor(r.tag_name);
+      const tMajor = semver.major(thisVersion);
+      const tMinor = semver.minor(thisVersion);
+      if (tMajor === rMajor && tMinor == rMinor) {
+        return true;
+      }
+      return false;
+    });
+
+    if (filteredReleases.length > 0) {
+      newBody += "\n" + PAGE_BREAK_MD + "\n";
+      newBody += `## Previous releases\n\n`;
+      for (let i = 0; i < filteredReleases.length; i++) {
+        const body = filteredReleases[i].body;
+        newBody += `### [${filteredReleases[i].name}](${filteredReleases[i].url})\n\n`;
+        if (!body) {
+          continue;
+        }
+
+        const bodyPart =
+          (filteredReleases[i].body &&
+            filteredReleases[i].body?.split(PAGE_BREAK_MD)[0]) ||
+          "";
+        if (bodyPart) {
+          newBody += `${bodyPart}\n\n`;
+        } else {
+          newBody += `${filteredReleases[i].body}\n\n`;
+        }
       }
     }
 
@@ -156,10 +169,4 @@ export = (app: Probot) => {
       body: newBody,
     });
   });
-
-  // For more information on building apps:
-  // https://probot.github.io/docs/
-
-  // To get your app running against GitHub, see:
-  // https://probot.github.io/docs/development/
 };

@@ -14,16 +14,19 @@
   "scripts": {
     "build": "tsc",
     "start": "probot run ./lib/index.js",
+    "bundle": "esbuild src/cmd/gh-action.ts --bundle --platform=node --target=node12 --outfile=dist/gh-action.js",
     "test": "jest"
   },
   "dependencies": {
     "probot": "^11.0.1"
   },
   "devDependencies": {
+    "@probot/adapter-github-actions": "^3.0.1",
     "@types/jest": "^26.0.19",
     "@types/node": "^14.14.19",
     "@types/semver": "^7.3.4",
     "compare-versions": "^3.6.0",
+    "esbuild": "^0.11.12",
     "jest": "^26.6.3",
     "nock": "^13.0.5",
     "prettier": "^2.2.1",
