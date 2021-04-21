@@ -2391,7 +2391,7 @@ var require_src = __commonJS((exports2, module2) => {
         if (pullRequests[k].labels.length > 0) {
           let labels = "	";
           pullRequests[k].labels.forEach((l) => {
-            labels += `![${l.name}](https://shields.io/badge/${l.name}-${l.color}) `;
+            labels += `![${l.name}](https://img.shields.io/static/v1?message=${l.name}&color=${l.color}&label=) `;
           });
           labels += "\n";
           newBody += labels;
