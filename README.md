@@ -106,6 +106,10 @@ If you have suggestions for how draft-on-release-tag could be improved, or want 
 
 For more, check out the [Contributing Guide](CONTRIBUTING.md).
 
+## Credits
+
+- [Shields.io](https://shields.io) for their wonderful (non-tracking) image badges that we use for labels
+
 ## License
 
 [MIT](LICENSE) © 2021 Andri Oskarsson
